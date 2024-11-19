@@ -1,0 +1,54 @@
+﻿@page "/create-feedback"
+@using FeedbackApp.Data
+@using FeedbackApp.Services
+@inject NavigationManager NavigationManager
+@inject IFeedbackService feedbackService
+
+<div class="row">
+    <div class="col-lg-9">
+        <h3>New Feedback</h3>
+    </div>
+    <div class="col-lg-3 text-right">
+        <a class="btn btn-success btn-sm" href="/manage-feedback" role="button">Feedback List</a>
+    </div>
+</div>
+
+@if (FeedbackMessage != null)
+{
+    <EditForm Model="@FeedbackMessage" OnValidSubmit="@SubmitFeedback">
+        <DataAnnotationsValidator />
+        <div class="form-group">
+            <label>Name</label>
+            <InputText class="form-control" style="width:70%;" @bind-Value="FeedbackMessage.Name" />
+            <ValidationMessage For="() => FeedbackMessage.Name" />
+        </div>
+        <div class="form-group">
+            <label>Message</label>
+            <InputTextArea class="form-control" style="width:70%;" @bind-Value="FeedbackMessage.Message" />
+            <ValidationMessage For="() => FeedbackMessage.Message" />
+        </div>
+        <div class="form-group">
+            <p>
+                <button type="submit" class="btn btn-primary" style="margin-top: 20px;">Save</button>
+            </p>
+        </div>
+    </EditForm>
+}
+
+@code {
+    public FeedbackMessage? FeedbackMessage { get; set; }
+
+    protected override void OnInitialized()
+    {
+        FeedbackMessage = new FeedbackMessage();
+    }
+
+    private async void SubmitFeedback()
+    {
+        if (FeedbackMessage != null)
+        {
+            await feedbackService.CreateFeedbackMessage(FeedbackMessage);
+        }
+        NavigationManager.NavigateTo("/manage-feedback");
+    }
+}

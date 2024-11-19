@@ -1,0 +1,143 @@
+﻿@page "/manage-feedback"
+@using FeedbackApp.Data
+@using FeedbackApp.Services
+@using Radzen
+@using Radzen.Blazor
+@inject IFeedbackService feedbackService
+
+<style>
+    .rz-grid-table {
+    width: unset;
+    }
+</style>
+
+<div class="row">
+    <div class="col-lg-9">
+        <h3>Customer Feedback</h3>
+    </div>
+    <div class="col-lg-3 text-right">
+        <a class="btn btn-success btn-sm" href="/create-feedback" role="button">New Feedback</a>
+    </div>
+</div>
+<RadzenDataGrid @ref="feedbacksGrid" AllowAlternatingRows="false" AllowPaging="true" PageSize="5" AllowSorting="true" EditMode="@editMode"
+                Data="@feedbacks" TItem="FeedbackMessage" ColumnWidth="200px">
+    <Columns>
+        <RadzenDataGridColumn Property="Id" Title="Message ID" Width="120px" Frozen="true" />
+        <RadzenDataGridColumn Property="@nameof(FeedbackMessage.Name)" Title="Name">
+            <EditTemplate Context="feedback">
+                <RadzenTextBox @bind-Value="feedback.Name" Style="width:200px; display: block" Name="Name" aria-label="Enter ship name" />
+                <RadzenRequiredValidator style="color:red;" Text="Name is required" Component="Name" Popup="true" />
+                <RadzenLengthValidator Max="100" style="color:red;" Text="Name should not be more than 100 characters" Component="Name" Popup="true" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(FeedbackMessage.Message)" Title="Message">
+            <EditTemplate Context="feedback">
+                <RadzenTextBox @bind-Value="feedback.Message" Style="width:200px; display: block" Name="Message" aria-label="Enter ship country" />
+                <RadzenRequiredValidator style="color:red;" Text="Message is required" Component="Message" Popup="true" />
+                <RadzenLengthValidator Max="500" style="color:red;" Text="Message should not be more than 500 characters" Component="Message" Popup="true" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Context="feedback" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+            <Template Context="feedback">
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(args => EditRow(feedback))" @onclick:stopPropagation="true">
+                </RadzenButton>
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1" Click="@(args => DeleteRow(feedback))" @onclick:stopPropagation="true">
+                </RadzenButton>
+            </Template>
+            <EditTemplate Context="feedback">
+                <RadzenButton Icon="save" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@((args) => SaveRow(feedback))" aria-label="Save">
+                </RadzenButton>
+                <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1" Click="@((args) => CancelEdit(feedback))" aria-label="Cancel">
+                </RadzenButton>
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1" Click="@(args => DeleteRow(feedback))" aria-label="Delete">
+                </RadzenButton>
+            </EditTemplate>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    RadzenDataGrid<FeedbackMessage> feedbacksGrid;
+    IEnumerable<FeedbackMessage> feedbacks;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<FeedbackMessage> feedbacksToInsert = new List<FeedbackMessage>();
+    List<FeedbackMessage> feedbacksToUpdate = new List<FeedbackMessage>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();        
+        feedbacks = await feedbackService.GetFeedbackMessageList();
+    }
+
+    void Reset()
+    {
+        feedbacksToInsert.Clear();
+        feedbacksToUpdate.Clear();
+    }
+
+    void Reset(FeedbackMessage feedback)
+    {
+        feedbacksToInsert.Remove(feedback);
+        feedbacksToUpdate.Remove(feedback);
+    }
+    async Task EditRow(FeedbackMessage feedback)
+    {
+
+        feedbacksToUpdate.Add(feedback);
+        await feedbacksGrid.EditRow(feedback);
+    }
+
+    void OnUpdateRow(FeedbackMessage feedback)
+    {
+        Reset(feedback);
+    }
+
+    async Task SaveRow(FeedbackMessage feedbackMessage)
+    {              
+        if (feedbackMessage.Id == 0)
+        {
+            await feedbackService.CreateFeedbackMessage(feedbackMessage);
+            feedbacks = await feedbackService.GetFeedbackMessageList();
+        }
+        else if(!string.IsNullOrEmpty(feedbackMessage.Name) && !string.IsNullOrEmpty(feedbackMessage.Message))
+        {
+            var feedback = await feedbackService.GetFeedbackMessageById(feedbackMessage.Id);
+            if (feedback != null)
+            {
+                feedback.Name = feedbackMessage.Name;
+                feedback.Message = feedbackMessage.Message;
+                await feedbackService.UpdateFeedback(feedback);
+            }
+            await feedbacksGrid.UpdateRow(feedbackMessage);
+        }
+       
+    }
+
+    void CancelEdit(FeedbackMessage feedback)
+    {
+        Reset(feedback);
+        feedbacksGrid.CancelEditRow(feedback);
+    }
+
+    async Task DeleteRow(FeedbackMessage feedback)
+    {
+        Reset(feedback);
+
+        if (feedbacks.Contains(feedback))
+        {
+            var dbFeedback = await feedbackService.GetFeedbackMessageById(feedback.Id);
+            if (dbFeedback != null)
+            {
+                await feedbackService.DeleteFeedback(dbFeedback);
+                feedbacks = await feedbackService.GetFeedbackMessageList();
+            }       
+        }
+        else
+        {
+            feedbacksGrid.CancelEditRow(feedback);
+            await feedbacksGrid.Reload();
+        }     
+    }
+
+}
+
